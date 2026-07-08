@@ -1,5 +1,6 @@
 const asyncHandler = require('../utils/asyncHandler');
 const sellerService = require('../services/seller.service');
+const sellerStatsService = require('../services/sellerStats.service');
 
 const apply = asyncHandler(async (req, res) => {
   const data = await sellerService.apply(req.user, req.body);
@@ -21,4 +22,9 @@ const myOrders = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
-module.exports = { apply, me, myListings, myOrders };
+const stats = asyncHandler(async (req, res) => {
+  const data = await sellerStatsService.getStats(req.user);
+  res.json({ data });
+});
+
+module.exports = { apply, me, myListings, myOrders, stats };

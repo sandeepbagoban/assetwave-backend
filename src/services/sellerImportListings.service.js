@@ -1,38 +1,28 @@
-const { sequelize, ImportJob, Seller, Listing } = require('../../models');
-const AppError = require('../../utils/AppError');
-const { COMMON_COLUMNS, parseWorkbook, validateCommonFields, uniqueSlug } = require('../shared/listingImportCore');
-
-const COLUMNS = [...COMMON_COLUMNS, 'seller_email'];
-
-async function validateRow(record) {
-  const { errors, category, condition, price } = await validateCommonFields(record);
-
-  let seller = null;
-  if (!record.seller_email) errors.push('seller_email is required');
-  else {
-    seller = await Seller.findOne({ include: [{ association: 'user', where: { email: String(record.seller_email).trim() } }] });
-    if (!seller) errors.push(`seller_email '${record.seller_email}' has no matching seller account`);
-    else if (seller.kybStatus !== 'approved') errors.push(`seller '${record.seller_email}' is not an approved seller`);
-  }
-
-  return { errors, category, seller, condition, price };
-}
+// Seller-scoped bulk listing import — same preview/commit shape as
+// admin/importListings.service.js, but always creates listings under the
+// current user's own seller profile instead of resolving a seller per row.
+const { sequelize, ImportJob, Listing } = require('../models');
+const AppError = require('../utils/AppError');
+const { assertSellerForUser } = require('./listing.service');
+const { COMMON_COLUMNS, parseWorkbook, validateCommonFields, uniqueSlug } = require('./shared/listingImportCore');
 
 async function preview(user, file) {
   if (!file) throw new AppError(400, 'validation_error', 'An .xlsx file is required.');
+  const seller = await assertSellerForUser(user);
 
-  const rawRows = await parseWorkbook(file.buffer, COLUMNS);
+  const rawRows = await parseWorkbook(file.buffer, COMMON_COLUMNS);
   if (!rawRows.length) throw new AppError(400, 'invalid_file', 'No data rows found in the uploaded file.');
 
   const validatedRows = [];
   for (const row of rawRows) {
-    const { errors } = await validateRow(row.data);
+    const { errors } = await validateCommonFields(row.data);
     validatedRows.push({ row_num: row.row_num, data: row.data, errors });
   }
 
   const errorCount = validatedRows.filter(r => r.errors.length).length;
 
   const job = await ImportJob.create({
+    sellerId: seller.id,
     uploadedBy: user.id,
     filename: file.originalname,
     status: 'previewed',
@@ -52,8 +42,10 @@ async function preview(user, file) {
 }
 
 async function commit(user, jobId) {
+  const seller = await assertSellerForUser(user);
   const job = await ImportJob.findByPk(jobId);
   if (!job) throw new AppError(404, 'not_found', 'Import job not found.');
+  if (job.sellerId !== seller.id) throw new AppError(403, 'forbidden', 'This import job does not belong to you.');
   if (job.status === 'committed') throw new AppError(409, 'already_committed', 'This import job was already committed.');
 
   const previewRows = job.previewData;
@@ -63,7 +55,7 @@ async function commit(user, jobId) {
     const skipped = [];
 
     for (const row of previewRows) {
-      const { errors, category, seller, condition, price } = await validateRow(row.data);
+      const { errors, category, condition, price } = await validateCommonFields(row.data);
       if (errors.length) { skipped.push({ row_num: row.row_num, errors }); continue; }
 
       const slug = await uniqueSlug(row.data.title, t);
@@ -97,9 +89,11 @@ async function commit(user, jobId) {
   });
 }
 
-async function getJob(id) {
-  const job = await ImportJob.findByPk(id);
+async function getJob(user, jobId) {
+  const seller = await assertSellerForUser(user);
+  const job = await ImportJob.findByPk(jobId);
   if (!job) throw new AppError(404, 'not_found', 'Import job not found.');
+  if (job.sellerId !== seller.id) throw new AppError(403, 'forbidden', 'This import job does not belong to you.');
   return {
     job_id: job.id, filename: job.filename, status: job.status,
     row_count: job.rowCount, error_count: job.errorCount, rows: job.previewData,
@@ -107,4 +101,4 @@ async function getJob(id) {
   };
 }
 
-module.exports = { preview, commit, getJob, COLUMNS };
+module.exports = { preview, commit, getJob, COLUMNS: COMMON_COLUMNS };
