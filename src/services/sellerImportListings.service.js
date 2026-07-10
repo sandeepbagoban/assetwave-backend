@@ -74,6 +74,10 @@ async function commit(user, jobId) {
         originCountry: row.data.origin_country || null,
         newPriceEstimate: row.data.new_price_estimate ? Number(row.data.new_price_estimate) : null,
         quantity: row.data.quantity ? Number(row.data.quantity) : 1,
+        weightKg: row.data.weight_kg ? Number(row.data.weight_kg) : null,
+        lengthCm: row.data.length_cm ? Number(row.data.length_cm) : null,
+        widthCm: row.data.width_cm ? Number(row.data.width_cm) : null,
+        heightCm: row.data.height_cm ? Number(row.data.height_cm) : null,
         status: 'active',
       }, { transaction: t });
 

@@ -10,7 +10,7 @@ const { CONDITIONS } = require('../listing.service');
 const COMMON_COLUMNS = [
   'title', 'category_slug', 'brand', 'model', 'year_manufactured', 'condition',
   'description', 'price_amount', 'currency', 'origin_country', 'new_price_estimate',
-  'quantity',
+  'quantity', 'weight_kg', 'length_cm', 'width_cm', 'height_cm',
 ];
 
 async function parseWorkbook(buffer, columns) {
@@ -60,6 +60,10 @@ async function validateCommonFields(record) {
   if (record.year_manufactured && Number.isNaN(Number(record.year_manufactured))) errors.push('year_manufactured must be numeric');
   if (record.new_price_estimate && Number.isNaN(Number(record.new_price_estimate))) errors.push('new_price_estimate must be numeric');
   if (record.quantity && Number.isNaN(Number(record.quantity))) errors.push('quantity must be numeric');
+  if (record.weight_kg && Number.isNaN(Number(record.weight_kg))) errors.push('weight_kg must be numeric');
+  if (record.length_cm && Number.isNaN(Number(record.length_cm))) errors.push('length_cm must be numeric');
+  if (record.width_cm && Number.isNaN(Number(record.width_cm))) errors.push('width_cm must be numeric');
+  if (record.height_cm && Number.isNaN(Number(record.height_cm))) errors.push('height_cm must be numeric');
 
   return { errors, category, condition, price };
 }

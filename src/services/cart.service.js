@@ -22,7 +22,8 @@ function toPublic(cart) {
     listing: listingService.toPublic(item.listing),
   }));
   const subtotal = items.reduce((sum, i) => sum + i.listing.price_amount * i.quantity, 0);
-  return { id: cart.id, items, subtotal };
+  const totalWeightKg = items.reduce((sum, i) => sum + (i.listing.weight_kg || 0) * i.quantity, 0);
+  return { id: cart.id, items, subtotal, total_weight_kg: Number(totalWeightKg.toFixed(2)) };
 }
 
 async function getCart(user) {

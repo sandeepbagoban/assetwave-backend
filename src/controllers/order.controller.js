@@ -31,4 +31,9 @@ const raiseDispute = asyncHandler(async (req, res) => {
   res.json({ data });
 });
 
-module.exports = { checkout, list, getOne, confirmDelivery, markShipped, raiseDispute };
+const recordTracking = asyncHandler(async (req, res) => {
+  const data = await orderService.recordTracking(req.user, req.params.id, req.body.tracking_number);
+  res.json({ data });
+});
+
+module.exports = { checkout, list, getOne, confirmDelivery, markShipped, raiseDispute, recordTracking };

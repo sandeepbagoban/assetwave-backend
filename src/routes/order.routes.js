@@ -11,5 +11,6 @@ router.get('/:id', controller.getOne);
 router.post('/:id/confirm-delivery', controller.confirmDelivery);
 router.post('/:id/ship', controller.markShipped);
 router.post('/:id/dispute', controller.raiseDispute);
+router.post('/:id/tracking', controller.recordTracking);
 
 module.exports = router;

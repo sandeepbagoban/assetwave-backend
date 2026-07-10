@@ -8,6 +8,7 @@ function toPublic(seller) {
     id: seller.id,
     user_id: seller.userId,
     org_name: seller.orgName,
+    nickname: seller.nickname,
     account_type: seller.accountType,
     country: seller.country,
     registration_no: seller.registrationNo,
@@ -22,13 +23,14 @@ async function apply(user, payload) {
   const existing = await Seller.findOne({ where: { userId: user.id } });
   if (existing) throw new AppError(409, 'already_applied', 'You already have a seller application on file.');
 
-  if (!payload.org_name || !payload.country) {
-    throw new AppError(400, 'validation_error', 'org_name and country are required.');
+  if (!payload.org_name || !payload.country || !payload.nickname) {
+    throw new AppError(400, 'validation_error', 'org_name, country, and nickname are required.');
   }
 
   const seller = await Seller.create({
     userId: user.id,
     orgName: payload.org_name,
+    nickname: payload.nickname,
     accountType: payload.account_type === 'individual' ? 'individual' : 'organization',
     country: payload.country,
     registrationNo: payload.registration_no,
@@ -78,6 +80,7 @@ async function getMyOrders(user, query) {
     price_amount: Number(item.priceAmount),
     quantity: item.quantity,
     buyer_name: item.order.buyer?.fullName,
+    tracking_number: item.order.trackingNumber,
   }));
 
   return paginatedResponse(data, count, { page, limit });

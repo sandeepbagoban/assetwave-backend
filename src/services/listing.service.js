@@ -21,13 +21,20 @@ function toPublic(listing) {
     origin_country: listing.originCountry,
     new_price_estimate: listing.newPriceEstimate ? Number(listing.newPriceEstimate) : null,
     quantity: listing.quantity,
+    weight_kg: listing.weightKg ? Number(listing.weightKg) : null,
+    length_cm: listing.lengthCm ? Number(listing.lengthCm) : null,
+    width_cm: listing.widthCm ? Number(listing.widthCm) : null,
+    height_cm: listing.heightCm ? Number(listing.heightCm) : null,
     status: listing.status,
     category: listing.category?.slug || null,
     category_id: listing.categoryId,
     seller_id: listing.sellerId,
     seller: listing.seller ? {
       id: listing.seller.id,
-      name: listing.seller.orgName,
+      // Deliberately not falling back to orgName — the real company name
+      // stays private even if a legacy seller record has no nickname yet.
+      name: listing.seller.nickname || 'Verified Seller',
+      country: listing.seller.country,
       verified: listing.seller.verified,
       account_type: listing.seller.accountType,
     } : null,
@@ -56,6 +63,7 @@ async function list(query, { viewer } = {}) {
   }
   if (query.brand) where.brand = { [Op.like]: `%${query.brand}%` };
   if (query.condition && CONDITIONS.includes(query.condition)) where.condition = query.condition;
+  if (query.country) where.originCountry = query.country.toUpperCase();
   if (query.min_price || query.max_price) {
     where.priceAmount = {};
     if (query.min_price) where.priceAmount[Op.gte] = Number(query.min_price);
@@ -112,6 +120,10 @@ async function create(user, payload) {
     originCountry: payload.origin_country,
     newPriceEstimate: payload.new_price_estimate,
     quantity: payload.quantity ?? 1,
+    weightKg: payload.weight_kg,
+    lengthCm: payload.length_cm,
+    widthCm: payload.width_cm,
+    heightCm: payload.height_cm,
     status: payload.status === 'active' ? 'active' : 'draft',
   });
 
@@ -129,6 +141,7 @@ async function update(user, id, payload) {
     year_manufactured: 'yearManufactured', condition: 'condition', price_amount: 'priceAmount',
     currency: 'currency', origin_country: 'originCountry', new_price_estimate: 'newPriceEstimate',
     quantity: 'quantity', status: 'status', category_id: 'categoryId',
+    weight_kg: 'weightKg', length_cm: 'lengthCm', width_cm: 'widthCm', height_cm: 'heightCm',
   };
   for (const [key, field] of Object.entries(fieldMap)) {
     if (payload[key] !== undefined) listing[field] = payload[key];

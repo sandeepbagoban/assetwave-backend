@@ -24,6 +24,8 @@ async function transition(order, toStatus, { changedBy, note } = {}) {
 
   order.status = toStatus;
   if (toStatus === 'paid') order.escrowHeldAt = new Date();
+  if (toStatus === 'shipped') order.shippedAt = new Date();
+  if (toStatus === 'delivered') order.deliveredAt = new Date();
   if (toStatus === 'released') order.escrowReleasedAt = new Date();
   if (toStatus === 'refunded') order.escrowRefundedAt = new Date();
 

@@ -32,6 +32,7 @@ router.patch('/orders/:id/status', ordersController.setStatus);
 router.patch('/orders/:id/escrow/release', ordersController.release);
 router.patch('/orders/:id/escrow/refund', ordersController.refund);
 router.patch('/orders/:id/dispute/resolve', ordersController.resolveDispute);
+router.post('/orders/run-timeouts', ordersController.runTimeouts);
 
 router.post('/imports/listings/preview', excelUpload.single('file'), importsController.preview);
 router.post('/imports/listings/:jobId/commit', importsController.commit);

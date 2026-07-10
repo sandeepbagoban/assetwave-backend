@@ -1,4 +1,4 @@
-const { sequelize, Order, OrderItem, Listing, Seller, User, Cart, CartItem, OrderStatusHistory } = require('../models');
+const { sequelize, Order, OrderItem, Listing, Seller, User, Cart, CartItem, OrderStatusHistory, LogisticsProvider } = require('../models');
 const AppError = require('../utils/AppError');
 const { parsePagination, paginatedResponse } = require('../utils/pagination');
 const { transition } = require('./orderStatus');
@@ -6,6 +6,7 @@ const { transition } = require('./orderStatus');
 const DETAIL_INCLUDE = [
   { model: OrderItem, as: 'items' },
   { model: OrderStatusHistory, as: 'statusHistory', order: [['createdAt', 'ASC']] },
+  { model: LogisticsProvider, as: 'logisticsProvider' },
 ];
 
 function toPublic(order) {
@@ -22,6 +23,11 @@ function toPublic(order) {
     escrow_refunded_at: order.escrowRefundedAt,
     dispute_reason: order.disputeReason,
     placed_at: order.placedAt,
+    shipped_at: order.shippedAt,
+    delivered_at: order.deliveredAt,
+    logistics_provider_id: order.logisticsProviderId,
+    logistics_provider: order.logisticsProvider ? { id: order.logisticsProvider.id, name: order.logisticsProvider.name } : null,
+    tracking_number: order.trackingNumber,
     items: (order.items || []).map(item => ({
       id: item.id,
       listing_id: item.listingId,
@@ -43,7 +49,7 @@ function requiredShippingFields(addr) {
   }
 }
 
-async function checkout(user, { shipping_address }) {
+async function checkout(user, { shipping_address, logistics_provider_id }) {
   requiredShippingFields(shipping_address);
 
   const cart = await Cart.findOne({ where: { buyerId: user.id }, include: [{ model: CartItem, as: 'items', include: [{ model: Listing, as: 'listing' }] }] });
@@ -83,6 +89,7 @@ async function checkout(user, { shipping_address }) {
       totalAmount: subtotal,
       shippingAddress: shipping_address,
       paymentMethod: 'simulated',
+      logisticsProviderId: logistics_provider_id || null,
     }, { transaction: t });
 
     await OrderItem.bulkCreate(itemRows.map(row => ({ ...row, orderId: order.id })), { transaction: t });
@@ -159,4 +166,21 @@ async function raiseDispute(user, id, reason) {
   return getById(user, id);
 }
 
-module.exports = { checkout, listMine, getById, findAuthorized, confirmDelivery, markShipped, raiseDispute, toPublic };
+async function recordTracking(user, id, trackingNumber) {
+  if (!trackingNumber || !trackingNumber.trim()) throw new AppError(400, 'validation_error', 'tracking_number is required.');
+
+  const seller = await Seller.findOne({ where: { userId: user.id } });
+  if (!seller) throw new AppError(403, 'forbidden', 'You do not have a seller profile.');
+
+  const order = await Order.findByPk(id, { include: [{ model: OrderItem, as: 'items' }] });
+  if (!order) throw new AppError(404, 'not_found', 'Order not found.');
+  if (!order.items.some(i => i.sellerId === seller.id)) {
+    throw new AppError(403, 'forbidden', 'You do not have items in this order.');
+  }
+
+  order.trackingNumber = trackingNumber;
+  await order.save();
+  return getById(user, id);
+}
+
+module.exports = { checkout, listMine, getById, findAuthorized, confirmDelivery, markShipped, raiseDispute, recordTracking, toPublic };

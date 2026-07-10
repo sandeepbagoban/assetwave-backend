@@ -20,6 +20,10 @@ module.exports = (sequelize, DataTypes) => {
     escrowHeldAt: { type: DataTypes.DATE },
     escrowReleasedAt: { type: DataTypes.DATE },
     escrowRefundedAt: { type: DataTypes.DATE },
+    shippedAt: { type: DataTypes.DATE },
+    deliveredAt: { type: DataTypes.DATE },
+    logisticsProviderId: { type: DataTypes.UUID },
+    trackingNumber: { type: DataTypes.STRING(100) },
     disputeReason: { type: DataTypes.TEXT },
     disputeResolvedBy: { type: DataTypes.UUID },
     placedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
@@ -34,6 +38,7 @@ module.exports = (sequelize, DataTypes) => {
   Order.associate = (models) => {
     Order.belongsTo(models.User, { foreignKey: 'buyerId', as: 'buyer' });
     Order.belongsTo(models.User, { foreignKey: 'disputeResolvedBy', as: 'disputeResolver' });
+    Order.belongsTo(models.LogisticsProvider, { foreignKey: 'logisticsProviderId', as: 'logisticsProvider' });
     Order.hasMany(models.OrderItem, { foreignKey: 'orderId', as: 'items' });
     Order.hasMany(models.OrderStatusHistory, { foreignKey: 'orderId', as: 'statusHistory' });
   };

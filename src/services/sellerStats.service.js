@@ -4,6 +4,7 @@
 const { Seller, Listing, OrderItem, Order } = require('../models');
 
 const REVENUE_STATUSES = new Set(['paid', 'shipped', 'delivered', 'released']);
+const PENDING_ORDER_STATUSES = ['pending_payment', 'paid', 'shipped', 'delivered'];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function dateKey(date) {
@@ -14,21 +15,32 @@ async function getStats(user) {
   const seller = await Seller.findOne({ where: { userId: user.id } });
   if (!seller) {
     return {
-      active_listings: 0, total_listings: 0, total_revenue_usd: 0,
+      active_listings: 0, total_listings: 0, sold_listings: 0, inventory_value_usd: 0,
+      pending_orders: 0, total_revenue_usd: 0,
       orders_by_status: {},
       sales_last_30_days: buildEmptyDays().map(d => ({ date: d.date, revenue_usd: 0 })),
       top_listings: [],
     };
   }
 
-  const [activeListings, totalListings, items] = await Promise.all([
+  const [activeListings, totalListings, soldListings, pendingOrders, activeListingRows, items] = await Promise.all([
     Listing.count({ where: { sellerId: seller.id, status: 'active' } }),
     Listing.count({ where: { sellerId: seller.id } }),
+    Listing.count({ where: { sellerId: seller.id, status: 'sold' } }),
+    Order.count({
+      distinct: true,
+      col: 'id',
+      where: { status: PENDING_ORDER_STATUSES },
+      include: [{ model: OrderItem, as: 'items', attributes: [], required: true, where: { sellerId: seller.id } }],
+    }),
+    Listing.findAll({ where: { sellerId: seller.id, status: 'active' }, attributes: ['priceAmount', 'quantity'] }),
     OrderItem.findAll({
       where: { sellerId: seller.id },
       include: [{ model: Order, as: 'order', attributes: ['id', 'status', 'placedAt'] }],
     }),
   ]);
+
+  const inventoryValue = activeListingRows.reduce((sum, l) => sum + Number(l.priceAmount) * l.quantity, 0);
 
   let totalRevenue = 0;
   const ordersByStatus = {};
@@ -67,6 +79,9 @@ async function getStats(user) {
   return {
     active_listings: activeListings,
     total_listings: totalListings,
+    sold_listings: soldListings,
+    inventory_value_usd: Number(inventoryValue.toFixed(2)),
+    pending_orders: pendingOrders,
     total_revenue_usd: Number(totalRevenue.toFixed(2)),
     orders_by_status: ordersByStatus,
     sales_last_30_days: [...salesByDay.entries()].map(([date, revenue]) => ({ date, revenue_usd: Number(revenue.toFixed(2)) })),

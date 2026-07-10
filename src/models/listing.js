@@ -15,6 +15,10 @@ module.exports = (sequelize, DataTypes) => {
     originCountry: { type: DataTypes.STRING(2) },
     newPriceEstimate: { type: DataTypes.DECIMAL(12, 2) },
     quantity: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+    weightKg: { type: DataTypes.DECIMAL(10, 2) },
+    lengthCm: { type: DataTypes.DECIMAL(8, 2) },
+    widthCm: { type: DataTypes.DECIMAL(8, 2) },
+    heightCm: { type: DataTypes.DECIMAL(8, 2) },
     status: { type: DataTypes.ENUM('draft', 'active', 'sold', 'archived'), allowNull: false, defaultValue: 'draft' },
   }, {
     tableName: 'listings',

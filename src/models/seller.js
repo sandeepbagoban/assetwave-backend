@@ -3,6 +3,7 @@ module.exports = (sequelize, DataTypes) => {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     userId: { type: DataTypes.UUID, allowNull: false, unique: true },
     orgName: { type: DataTypes.STRING(255), allowNull: false },
+    nickname: { type: DataTypes.STRING(100) },
     accountType: { type: DataTypes.ENUM('organization', 'individual'), allowNull: false, defaultValue: 'organization' },
     country: { type: DataTypes.STRING(2), allowNull: false },
     registrationNo: { type: DataTypes.STRING(100) },

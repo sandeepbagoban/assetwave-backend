@@ -1,6 +1,7 @@
 const asyncHandler = require('../../utils/asyncHandler');
 const AppError = require('../../utils/AppError');
 const ordersService = require('../../services/admin/orders.service');
+const { runOrderTimeouts } = require('../../services/orderTimeouts.service');
 
 const list = asyncHandler(async (req, res) => res.json(await ordersService.list(req.query)));
 const getOne = asyncHandler(async (req, res) => res.json({ data: await ordersService.getById(req.params.id) }));
@@ -17,4 +18,8 @@ const resolveDispute = asyncHandler(async (req, res) => {
   res.json({ data: await ordersService.resolveDispute(req.user, req.params.id, req.body.resolution, req.body.note) });
 });
 
-module.exports = { list, getOne, setStatus, release, refund, resolveDispute };
+const runTimeouts = asyncHandler(async (req, res) => {
+  res.json({ data: await runOrderTimeouts() });
+});
+
+module.exports = { list, getOne, setStatus, release, refund, resolveDispute, runTimeouts };
