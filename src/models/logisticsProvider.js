@@ -13,6 +13,7 @@ module.exports = (sequelize, DataTypes) => {
 
   LogisticsProvider.associate = (models) => {
     LogisticsProvider.hasMany(models.Order, { foreignKey: 'logisticsProviderId', as: 'orders' });
+    LogisticsProvider.hasMany(models.LogisticsProviderRate, { foreignKey: 'logisticsProviderId', as: 'rates' });
   };
 
   return LogisticsProvider;

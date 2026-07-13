@@ -2,6 +2,8 @@ const { sequelize, Order, OrderItem, Listing, Seller, User, Cart, CartItem, Orde
 const AppError = require('../utils/AppError');
 const { parsePagination, paginatedResponse } = require('../utils/pagination');
 const { transition } = require('./orderStatus');
+const { getRateForCountry } = require('./logisticsProvider.service');
+const notificationService = require('./notification.service');
 
 const DETAIL_INCLUDE = [
   { model: OrderItem, as: 'items' },
@@ -14,6 +16,7 @@ function toPublic(order) {
     id: order.id,
     status: order.status,
     subtotal_amount: Number(order.subtotalAmount),
+    shipping_amount: Number(order.shippingAmount),
     total_amount: Number(order.totalAmount),
     currency: order.currency,
     shipping_address: order.shippingAddress,
@@ -55,7 +58,21 @@ async function checkout(user, { shipping_address, logistics_provider_id }) {
   const cart = await Cart.findOne({ where: { buyerId: user.id }, include: [{ model: CartItem, as: 'items', include: [{ model: Listing, as: 'listing' }] }] });
   if (!cart || !cart.items.length) throw new AppError(400, 'empty_cart', 'Your cart is empty.');
 
-  return sequelize.transaction(async (t) => {
+  // Providers are optional (older/no-provider carts still checkout with no
+  // shipping charge) — but once one is selected, it must actually ship to
+  // the buyer's country or we reject rather than silently charging $0.
+  let shippingAmount = 0;
+  if (logistics_provider_id) {
+    const rate = await getRateForCountry(logistics_provider_id, shipping_address.country?.toUpperCase());
+    if (!rate) {
+      throw new AppError(400, 'no_shipping_rate', 'This shipping provider does not ship to your country — please choose a different one.');
+    }
+    shippingAmount = Number(rate.priceAmount);
+  }
+
+  let sellerIdsForNotify = [];
+
+  const result = await sequelize.transaction(async (t) => {
     let subtotal = 0;
     const itemRows = [];
 
@@ -86,7 +103,8 @@ async function checkout(user, { shipping_address, logistics_provider_id }) {
       buyerId: user.id,
       status: 'pending_payment',
       subtotalAmount: subtotal,
-      totalAmount: subtotal,
+      shippingAmount,
+      totalAmount: subtotal + shippingAmount,
       shippingAddress: shipping_address,
       paymentMethod: 'simulated',
       logisticsProviderId: logistics_provider_id || null,
@@ -105,9 +123,24 @@ async function checkout(user, { shipping_address, logistics_provider_id }) {
 
     await CartItem.destroy({ where: { cartId: cart.id }, transaction: t });
 
+    sellerIdsForNotify = itemRows.map(row => row.sellerId);
+
     const fresh = await Order.findByPk(order.id, { include: DETAIL_INCLUDE, transaction: t });
     return toPublic(fresh);
   });
+
+  // Best-effort, same as orderStatus.js's transition() — never let a
+  // notification failure surface as a checkout error to the buyer.
+  try {
+    await notificationService.notifySellers(sellerIdsForNotify, {
+      type: 'order_paid', title: 'New order received', message: 'You have a new paid order waiting to be shipped.',
+      link: `/orders/${result.id}`,
+    });
+  } catch (err) {
+    console.error('Notification creation failed:', err.message);
+  }
+
+  return result;
 }
 
 async function listMine(user, query) {

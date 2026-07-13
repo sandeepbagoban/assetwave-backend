@@ -13,6 +13,7 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 'pending_payment',
     },
     subtotalAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+    shippingAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
     totalAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
     currency: { type: DataTypes.STRING(3), allowNull: false, defaultValue: 'USD' },
     shippingAddress: { ...jsonColumnOptions(DataTypes, 'shippingAddress'), allowNull: false },
