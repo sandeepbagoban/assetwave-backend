@@ -28,7 +28,7 @@ module.exports = {
   corsOrigins: (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean),
 
   seedAdmin: {
-    email: process.env.SEED_ADMIN_EMAIL || 'admin@assetwave.com',
+    email: process.env.SEED_ADMIN_EMAIL || 'admin@awxchange.com',
     password: process.env.SEED_ADMIN_PASSWORD || 'ChangeMe123!',
   },
 };

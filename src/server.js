@@ -15,7 +15,7 @@ async function start() {
   }
 
   app.listen(env.port, () => {
-    console.log(`AssetWave backend listening on http://localhost:${env.port} (env: ${env.nodeEnv})`);
+    console.log(`AWXchange backend listening on http://localhost:${env.port} (env: ${env.nodeEnv})`);
   });
 
   // Belt-and-suspenders for the 3-day escrow timeouts: this in-process

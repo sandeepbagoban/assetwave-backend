@@ -13,7 +13,7 @@ module.exports = {
   up: async (queryInterface) => {
     const now = new Date();
 
-    const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@assetwave.com';
+    const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@awxchange.com';
     const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'ChangeMe123!';
     const passwordHash = await bcrypt.hash(adminPassword, 10);
 
@@ -26,7 +26,7 @@ module.exports = {
         id: uuidv4(),
         email: adminEmail,
         password_hash: passwordHash,
-        full_name: 'AssetWave Admin',
+        full_name: 'AWXchange Admin',
         role: 'admin',
         status: 'active',
         created_at: now,
@@ -54,6 +54,6 @@ module.exports = {
 
   down: async (queryInterface) => {
     await queryInterface.bulkDelete('categories', { slug: CATEGORIES.map(c => c.slug) });
-    await queryInterface.bulkDelete('users', { email: process.env.SEED_ADMIN_EMAIL || 'admin@assetwave.com' });
+    await queryInterface.bulkDelete('users', { email: process.env.SEED_ADMIN_EMAIL || 'admin@awxchange.com' });
   },
 };
