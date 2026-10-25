@@ -81,6 +81,7 @@ async function checkout(user, { shipping_address, logistics_provider_id }) {
       if (!listing || listing.status !== 'active') {
         throw new AppError(409, 'listing_unavailable', `"${cartItem.listing.title}" is no longer available.`);
       }
+      if (listing.priceAmount == null || listing.currency !== 'USD') throw new AppError(400, 'managed_purchase', 'Please enquire with AWXchange for this purchase.');
       if (listing.quantity < cartItem.quantity) {
         throw new AppError(409, 'insufficient_quantity', `Not enough stock for "${listing.title}".`);
       }
@@ -106,21 +107,14 @@ async function checkout(user, { shipping_address, logistics_provider_id }) {
       shippingAmount,
       totalAmount: subtotal + shippingAmount,
       shippingAddress: shipping_address,
-      paymentMethod: 'simulated',
+      paymentMethod: 'bank_transfer',
       logisticsProviderId: logistics_provider_id || null,
     }, { transaction: t });
 
     await OrderItem.bulkCreate(itemRows.map(row => ({ ...row, orderId: order.id })), { transaction: t });
-    await OrderStatusHistory.create({ orderId: order.id, fromStatus: null, toStatus: 'pending_payment', note: 'Order placed.' }, { transaction: t });
+    await OrderStatusHistory.create({ orderId: order.id, fromStatus: null, toStatus: 'pending_payment', note: 'Basket submitted. AWXchange will confirm availability, shipping and the invoice before bank transfer.' }, { transaction: t });
 
-    // Simulated payment gateway: capture succeeds immediately and funds move
-    // into escrow. A real gateway integration would instead webhook this
-    // transition in after an async charge confirmation.
-    order.status = 'paid';
-    order.escrowHeldAt = new Date();
-    await order.save({ transaction: t });
-    await OrderStatusHistory.create({ orderId: order.id, fromStatus: 'pending_payment', toStatus: 'paid', note: 'Payment captured (simulated); funds held in escrow.' }, { transaction: t });
-
+    // Bank transfers are confirmed by the AWXchange team after invoicing.
     await CartItem.destroy({ where: { cartId: cart.id }, transaction: t });
 
     sellerIdsForNotify = itemRows.map(row => row.sellerId);
@@ -133,13 +127,14 @@ async function checkout(user, { shipping_address, logistics_provider_id }) {
   // notification failure surface as a checkout error to the buyer.
   try {
     await notificationService.notifySellers(sellerIdsForNotify, {
-      type: 'order_paid', title: 'New order received', message: 'You have a new paid order waiting to be shipped.',
+      type: 'order_submitted', title: 'New order received', message: 'A buyer submitted an order. AWXchange will confirm availability and collection.',
       link: `/orders/${result.id}`,
     });
   } catch (err) {
     console.error('Notification creation failed:', err.message);
   }
 
+  try { await require('./email.service').queueForUser(user.id, 'Basket received', 'Your basket has been submitted. AWXchange will confirm availability and send your invoice and bank transfer instructions.'); } catch (error) { console.error('Order email queue failed:', error.message); }
   return result;
 }
 

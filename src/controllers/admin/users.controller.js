@@ -6,4 +6,5 @@ const listBuyers = asyncHandler(async (req, res) => res.json(await usersService.
 const getOne = asyncHandler(async (req, res) => res.json({ data: await usersService.getUser(req.params.id) }));
 const setStatus = asyncHandler(async (req, res) => res.json({ data: await usersService.setUserStatus(req.params.id, req.body.status) }));
 
-module.exports = { list, listBuyers, getOne, setStatus };
+const setPilotBuyer = asyncHandler(async (req, res) => res.json({ data: await usersService.setPilotBuyer(req.params.id, req.body.pilot_buyer) }));
+module.exports = { list, listBuyers, getOne, setStatus, setPilotBuyer };

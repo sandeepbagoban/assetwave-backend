@@ -3,9 +3,10 @@ const controller = require('../controllers/cart.controller');
 const { requireAuth } = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 
+const requirePilotBuyer = require('../middleware/requirePilotBuyer');
 const router = express.Router();
 
-router.use(requireAuth(), requireRole('buyer', 'seller', 'admin'));
+router.use(requireAuth(), requireRole('buyer', 'seller', 'admin'), requirePilotBuyer);
 router.get('/', controller.getCart);
 router.post('/items', controller.addItem);
 router.patch('/items/:id', controller.updateItem);

@@ -55,6 +55,7 @@ async function notifyForTransition(order, toStatus) {
       message: 'Your order is on its way.', link,
     });
   } else if (toStatus === 'delivered') {
+    await notificationService.create({ userId: order.buyerId, type: 'order_delivered', title: 'Delivery confirmed', message: 'Your delivery confirmation has been recorded. Contact AWXchange if you need help.', link });
     await notificationService.notifySellers(sellerIds, {
       type: 'order_delivered', title: 'Delivery confirmed', message: 'The buyer confirmed delivery of their order.', link,
     });
@@ -65,10 +66,10 @@ async function notifyForTransition(order, toStatus) {
   } else if (toStatus === 'released') {
     await notificationService.create({
       userId: order.buyerId, type: 'order_released', title: 'Order completed',
-      message: 'Escrow was released — this order is complete.', link,
+      message: 'The seller payout was confirmed — this order is complete.', link,
     });
     await notificationService.notifySellers(sellerIds, {
-      type: 'order_released', title: 'Payout released', message: 'Escrow was released for one of your sales.', link,
+      type: 'order_released', title: 'Payout released', message: 'The payout was confirmed for one of your sales.', link,
     });
   } else if (toStatus === 'refunded') {
     await notificationService.create({

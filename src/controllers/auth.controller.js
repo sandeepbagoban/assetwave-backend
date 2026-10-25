@@ -4,7 +4,8 @@ const authService = require('../services/auth.service');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function validateRegisterBody({ email, password, full_name }) {
+function validateRegisterBody({ email, password, full_name, accepted_terms, legal_version }) {
+  if (accepted_terms !== true || legal_version !== '2026-10-25') throw new AppError(400, 'legal_acceptance_required', 'Accept the current Terms of Use and Privacy Policy to register.');
   if (!email || !EMAIL_RE.test(email)) throw new AppError(400, 'validation_error', 'A valid email is required.');
   if (!password || password.length < 8) throw new AppError(400, 'validation_error', 'Password must be at least 8 characters.');
   if (!full_name || !full_name.trim()) throw new AppError(400, 'validation_error', 'Full name is required.');
@@ -13,7 +14,7 @@ function validateRegisterBody({ email, password, full_name }) {
 const register = asyncHandler(async (req, res) => {
   validateRegisterBody(req.body);
   const { email, password, full_name, phone } = req.body;
-  const result = await authService.register({ email, password, fullName: full_name, phone });
+  const result = await authService.register({ email, password, fullName: full_name, phone, legalVersion: req.body.legal_version });
   res.status(201).json(result);
 });
 

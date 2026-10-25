@@ -13,11 +13,13 @@ const router = express.Router();
 
 router.use(requireAuth(), requireRole('admin'));
 
+router.use('/listings', require('./adminListings.routes'));
 router.get('/dashboard/stats', dashboardController.stats);
 
 router.get('/users', usersController.list);
 router.get('/buyers', usersController.listBuyers);
 router.get('/users/:id', usersController.getOne);
+router.patch('/users/:id/pilot-buyer', usersController.setPilotBuyer);
 router.patch('/users/:id', usersController.setStatus);
 
 router.get('/sellers', sellersController.list);

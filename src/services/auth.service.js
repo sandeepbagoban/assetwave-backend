@@ -3,14 +3,15 @@ const { User, Cart } = require('../models');
 const AppError = require('../utils/AppError');
 const { signAccessToken, issueRefreshToken, rotateRefreshToken, revokeRefreshToken } = require('./token.service');
 
-async function register({ email, password, fullName, phone }) {
+async function register({ email, password, fullName, phone, legalVersion }) {
   const existing = await User.findOne({ where: { email } });
   if (existing) throw new AppError(409, 'email_taken', 'An account with this email already exists.');
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await User.create({ email, passwordHash, fullName, phone, role: 'buyer' });
+  const user = await User.create({ email, passwordHash, fullName, phone, role: 'buyer', legalVersion, termsAcceptedAt: new Date() });
   await Cart.create({ buyerId: user.id });
 
+  try { await require('./email.service').queueForUser(user.id, 'Welcome', 'Welcome to AWXchange. Our pilot team can help you buy or sell surplus telecom and broadcast equipment. Seller applications are reviewed before listings can be published.'); } catch (error) { console.error('Welcome email queue failed:', error.message); }
   return issueTokens(user);
 }
 
@@ -53,6 +54,9 @@ function toPublicUser(user) {
     phone: user.phone,
     role: user.role,
     status: user.status,
+    pilot_buyer: user.pilotBuyer === true,
+    terms_accepted_at: user.termsAcceptedAt,
+    legal_version: user.legalVersion,
   };
 }
 

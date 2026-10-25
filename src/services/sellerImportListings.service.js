@@ -50,7 +50,7 @@ async function commit(user, jobId) {
 
   const previewRows = job.previewData;
 
-  return sequelize.transaction(async (t) => {
+  const result = await sequelize.transaction(async (t) => {
     const created = [];
     const skipped = [];
 
@@ -72,6 +72,7 @@ async function commit(user, jobId) {
         priceAmount: price,
         currency: row.data.currency ? String(row.data.currency).toUpperCase() : 'USD',
         originCountry: row.data.origin_country || null,
+        equipmentLocation: row.data.equipment_location || null,
         newPriceEstimate: row.data.new_price_estimate ? Number(row.data.new_price_estimate) : null,
         quantity: row.data.quantity ? Number(row.data.quantity) : 1,
         weightKg: row.data.weight_kg ? Number(row.data.weight_kg) : null,
@@ -91,6 +92,8 @@ async function commit(user, jobId) {
 
     return { job_id: job.id, created_count: created.length, skipped_count: skipped.length, created, skipped };
   });
+  try { await require('./email.service').queueForUser(user.id, 'Inventory import complete', `Your inventory import is complete: ${result.created_count} listings created, ${result.skipped_count} rows skipped. Sign in to review the results.`); } catch (error) { console.error('Import email queue failed:', error.message); }
+  return result;
 }
 
 async function getJob(user, jobId) {

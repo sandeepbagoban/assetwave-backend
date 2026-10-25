@@ -34,4 +34,12 @@ async function setUserStatus(id, status) {
   return toPublicUser(user);
 }
 
-module.exports = { listUsers, listBuyers, getUser, setUserStatus };
+async function setPilotBuyer(id, approved) {
+  if (typeof approved !== 'boolean') throw new AppError(400, 'validation_error', 'pilot_buyer must be a boolean.');
+  const user = await User.findByPk(id);
+  if (!user) throw new AppError(404, 'not_found', 'User not found.');
+  user.pilotBuyer = approved;
+  await user.save();
+  return toPublicUser(user);
+}
+module.exports = { listUsers, listBuyers, getUser, setUserStatus, setPilotBuyer };

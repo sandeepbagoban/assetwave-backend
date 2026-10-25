@@ -9,7 +9,9 @@
     "start": "node src/server.js",
     "db:migrate": "sequelize-cli db:migrate",
     "db:migrate:undo": "sequelize-cli db:migrate:undo",
-    "db:seed": "sequelize-cli db:seed:all"
+    "db:seed": "sequelize-cli db:seed:all",
+    "test": "node --test test/*.test.js",
+    "demo:review": "node scripts/cleanup-demo.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

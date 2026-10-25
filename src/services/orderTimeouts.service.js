@@ -15,7 +15,7 @@ async function runOrderTimeouts() {
   const results = { refunded: [], released: [], errors: [] };
 
   const unshipped = await Order.findAll({
-    where: { status: 'paid', escrowHeldAt: { [Op.lte]: cutoff } },
+    where: { paymentMethod: 'simulated', status: 'paid', escrowHeldAt: { [Op.lte]: cutoff } },
   });
   for (const order of unshipped) {
     try {
@@ -30,7 +30,7 @@ async function runOrderTimeouts() {
   }
 
   const undisputed = await Order.findAll({
-    where: { status: 'delivered', deliveredAt: { [Op.lte]: cutoff } },
+    where: { paymentMethod: 'simulated', status: 'delivered', deliveredAt: { [Op.lte]: cutoff } },
   });
   for (const order of undisputed) {
     try {

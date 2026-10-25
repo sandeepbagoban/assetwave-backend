@@ -51,6 +51,7 @@ async function decide(admin, id, decision, notes) {
   seller.reviewedBy = admin.id;
   seller.reviewedAt = new Date();
   await seller.save();
+  try { await require('../email.service').queueForUser(seller.userId, `Seller application ${seller.kybStatus}`, `Your AWXchange seller application is ${seller.kybStatus}. ${decision === 'approve' ? 'Sign in to your seller dashboard to upload your inventory.' : 'Contact our team if you have questions about this decision.'}`); } catch (error) { console.error('Seller email queue failed:', error.message); }
 
   return getById(id);
 }

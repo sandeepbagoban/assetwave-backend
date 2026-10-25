@@ -34,8 +34,11 @@ async function getCart(user) {
 
 async function addItem(user, { listing_id, quantity }) {
   const listing = await Listing.findByPk(listing_id);
-  if (!listing || listing.status !== 'active') throw new AppError(404, 'not_found', 'Listing not available.');
+  if (!listing || listing.status !== 'active' || listing.slug.startsWith('aw-seed-')) throw new AppError(404, 'not_found', 'Listing not available.');
 
+  if (listing.priceAmount == null) throw new AppError(400, 'price_on_request', 'Please enquire with AWXchange for a price.');
+  // Checkout currently settles in USD; other currencies are handled personally.
+  if (listing.currency !== 'USD') throw new AppError(400, 'managed_currency', 'Please enquire with AWXchange to purchase in this currency.');
   const qty = Math.max(1, Number(quantity) || 1);
   if (qty > listing.quantity) throw new AppError(409, 'insufficient_quantity', 'Not enough stock available.');
 

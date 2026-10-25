@@ -33,7 +33,7 @@ async function getStats(user) {
       where: { status: PENDING_ORDER_STATUSES },
       include: [{ model: OrderItem, as: 'items', attributes: [], required: true, where: { sellerId: seller.id } }],
     }),
-    Listing.findAll({ where: { sellerId: seller.id, status: 'active' }, attributes: ['priceAmount', 'quantity'] }),
+    Listing.findAll({ where: { sellerId: seller.id, status: 'active', currency: 'USD' }, attributes: ['priceAmount', 'quantity'] }),
     OrderItem.findAll({
       where: { sellerId: seller.id },
       include: [{ model: Order, as: 'order', attributes: ['id', 'status', 'placedAt'] }],

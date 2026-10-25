@@ -1,4 +1,4 @@
-// In-app only (no email/SMS) — a simple polled bell in each frontend, not a
+// In-app notifications with queued transactional email — a simple polled bell in each frontend, not a
 // push/webhook system. Order-lifecycle events are the only producer today
 // (see orderStatus.js / order.service.js's checkout()).
 const { Notification, Seller, User } = require('../models');
@@ -17,7 +17,9 @@ function toPublic(n) {
 }
 
 async function create({ userId, type, title, message, link }) {
-  return Notification.create({ userId, type, title, message, link });
+  const notification = await Notification.create({ userId, type, title, message, link });
+  try { await require('./email.service').queueForUser(userId, title, message); } catch (error) { console.error('Email queue failed:', error.message); }
+  return notification;
 }
 
 // sellerIds are Seller.id (the profile), not the underlying account —

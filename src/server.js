@@ -3,6 +3,7 @@ const env = require('./config/env');
 const sequelize = require('./config/db');
 const { runOrderTimeouts } = require('./services/orderTimeouts.service');
 
+const { deliverPending } = require('./services/email.service');
 const TIMEOUT_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
 async function start() {
@@ -18,6 +19,7 @@ async function start() {
     console.log(`AWXchange backend listening on http://localhost:${env.port} (env: ${env.nodeEnv})`);
   });
 
+  setInterval(() => deliverPending().catch(error => console.error('Email worker:', error.message)), 60000).unref();
   // Belt-and-suspenders for the 3-day escrow timeouts: this in-process
   // interval handles the common case, and POST /admin/orders/run-timeouts
   // exists as a manual/external-cron fallback in case this process gets

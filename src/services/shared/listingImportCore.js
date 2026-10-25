@@ -9,7 +9,7 @@ const { CONDITIONS } = require('../listing.service');
 
 const COMMON_COLUMNS = [
   'title', 'category_slug', 'brand', 'model', 'year_manufactured', 'condition',
-  'description', 'price_amount', 'currency', 'origin_country', 'new_price_estimate',
+  'description', 'price_amount', 'currency', 'origin_country', 'equipment_location', 'new_price_estimate',
   'quantity', 'weight_kg', 'length_cm', 'width_cm', 'height_cm',
 ];
 
@@ -54,9 +54,13 @@ async function validateCommonFields(record) {
     errors.push(`condition must be one of: ${CONDITIONS.join(', ')}`);
   }
 
-  const price = Number(record.price_amount);
-  if (!record.price_amount || Number.isNaN(price) || price <= 0) errors.push('price_amount must be a positive number');
+  const price = record.price_amount == null || record.price_amount === '' ? null : Number(record.price_amount);
+  if (price !== null && (!Number.isFinite(price) || price <= 0)) errors.push('price_amount must be a positive number');
 
+  if (record.currency && !['USD','EUR','GBP','MUR','ZAR','AED','INR','AUD','CAD','CHF','SGD','JPY'].includes(String(record.currency).toUpperCase())) errors.push('Unsupported currency');
+  for (const field of ['origin_country', 'equipment_location']) {
+    if (record[field] && !/^[A-Z]{2}$/.test(String(record[field]))) errors.push(`${field} must be an uppercase country code`);
+  }
   if (record.year_manufactured && Number.isNaN(Number(record.year_manufactured))) errors.push('year_manufactured must be numeric');
   if (record.new_price_estimate && Number.isNaN(Number(record.new_price_estimate))) errors.push('new_price_estimate must be numeric');
   if (record.quantity && Number.isNaN(Number(record.quantity))) errors.push('quantity must be numeric');

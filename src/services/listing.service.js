@@ -16,8 +16,9 @@ function toPublic(listing) {
     year_manufactured: listing.yearManufactured,
     condition: listing.condition,
     description: listing.description,
-    price_amount: Number(listing.priceAmount),
+    price_amount: listing.priceAmount == null ? null : Number(listing.priceAmount),
     currency: listing.currency,
+    equipment_location: listing.equipmentLocation,
     origin_country: listing.originCountry,
     new_price_estimate: listing.newPriceEstimate ? Number(listing.newPriceEstimate) : null,
     quantity: listing.quantity,
@@ -38,7 +39,7 @@ function toPublic(listing) {
       verified: listing.seller.verified,
       account_type: listing.seller.accountType,
     } : null,
-    images: (listing.images || []).sort((a, b) => a.sortOrder - b.sortOrder).map(img => img.url),
+    images: (listing.images || []).sort((a, b) => a.sortOrder - b.sortOrder).map(img => img.url).filter(url => !/^https?:\/\/(?:www\.)?picsum\.photos(?:\/|$)/i.test(url)),
     created_at: listing.createdAt,
   };
 }
@@ -55,7 +56,9 @@ async function list(query, { viewer } = {}) {
 
   // Public callers only ever see active listings; a seller/admin viewing
   // their own dashboard sees all statuses via sellers.service instead.
-  where.status = 'active';
+  if (viewer?.role !== 'admin') where.status = 'active';
+  else if (query.status) where.status = query.status;
+  if (viewer?.role !== 'admin') where.slug = { [Op.notLike]: 'aw-seed-%' };
 
   if (query.category) {
     const category = await Category.findOne({ where: { slug: query.category } });
@@ -63,7 +66,7 @@ async function list(query, { viewer } = {}) {
   }
   if (query.brand) where.brand = { [Op.like]: `%${query.brand}%` };
   if (query.condition && CONDITIONS.includes(query.condition)) where.condition = query.condition;
-  if (query.country) where.originCountry = query.country.toUpperCase();
+  if (query.country) where.equipmentLocation = query.country.toUpperCase();
   if (query.min_price || query.max_price) {
     where.priceAmount = {};
     if (query.min_price) where.priceAmount[Op.gte] = Number(query.min_price);
@@ -78,15 +81,15 @@ async function list(query, { viewer } = {}) {
   }
 
   const { rows, count } = await Listing.findAndCountAll({
-    where, include: INCLUDE, limit, offset, order: [['createdAt', 'DESC']], distinct: true,
+    where, include: viewer?.role === 'admin' ? INCLUDE : [{ model: Seller, as: 'seller', where: { kybStatus: 'approved' }, required: true }, ...INCLUDE.slice(1)], limit, offset, order: [['createdAt', 'DESC']], distinct: true,
   });
 
   return paginatedResponse(rows.map(toPublic), count, { page, limit });
 }
 
-async function getById(id) {
+async function getById(id, { viewer } = {}) {
   const listing = await Listing.findByPk(id, { include: INCLUDE });
-  if (!listing) throw new AppError(404, 'not_found', 'Listing not found.');
+  if (!listing || (viewer?.role !== 'admin' && (listing.status !== 'active' || listing.slug.startsWith('aw-seed-') || listing.seller?.kybStatus !== 'approved'))) throw new AppError(404, 'not_found', 'Listing not found.');
   return toPublic(listing);
 }
 
@@ -115,9 +118,10 @@ async function create(user, payload) {
     yearManufactured: payload.year_manufactured,
     condition: payload.condition,
     description: payload.description,
-    priceAmount: payload.price_amount,
+    priceAmount: payload.price_amount == null || payload.price_amount === '' ? null : payload.price_amount,
     currency: payload.currency || 'USD',
     originCountry: payload.origin_country,
+    equipmentLocation: payload.equipment_location || null,
     newPriceEstimate: payload.new_price_estimate,
     quantity: payload.quantity ?? 1,
     weightKg: payload.weight_kg,
@@ -127,7 +131,7 @@ async function create(user, payload) {
     status: payload.status === 'active' ? 'active' : 'draft',
   });
 
-  return getById(listing.id);
+  return getById(listing.id, { viewer: { role: 'admin' } });
 }
 
 async function update(user, id, payload) {
@@ -139,17 +143,17 @@ async function update(user, id, payload) {
   const fieldMap = {
     title: 'title', brand: 'brand', model: 'model', description: 'description',
     year_manufactured: 'yearManufactured', condition: 'condition', price_amount: 'priceAmount',
-    currency: 'currency', origin_country: 'originCountry', new_price_estimate: 'newPriceEstimate',
+    equipment_location: 'equipmentLocation', currency: 'currency', origin_country: 'originCountry', new_price_estimate: 'newPriceEstimate',
     quantity: 'quantity', status: 'status', category_id: 'categoryId',
     weight_kg: 'weightKg', length_cm: 'lengthCm', width_cm: 'widthCm', height_cm: 'heightCm',
   };
   for (const [key, field] of Object.entries(fieldMap)) {
-    if (payload[key] !== undefined) listing[field] = payload[key];
+    if (payload[key] !== undefined) listing[field] = key === 'price_amount' && payload[key] === '' ? null : payload[key];
   }
   if (payload.title) listing.slug = await uniqueSlug(payload.title, listing.id);
 
   await listing.save();
-  return getById(listing.id);
+  return getById(listing.id, { viewer: { role: 'admin' } });
 }
 
 async function remove(user, id) {
@@ -166,7 +170,7 @@ async function addImages(user, id, urls) {
 
   const existingCount = await ListingImage.count({ where: { listingId: id } });
   await ListingImage.bulkCreate(urls.map((url, i) => ({ listingId: id, url, sortOrder: existingCount + i })));
-  return getById(id);
+  return getById(id, { viewer: { role: 'admin' } });
 }
 
 async function assertOwnershipOrAdmin(user, listing) {
@@ -178,7 +182,7 @@ async function assertOwnershipOrAdmin(user, listing) {
 }
 
 function validatePayload(payload, { partial }) {
-  const required = ['title', 'category_id', 'condition', 'price_amount'];
+  const required = ['title', 'category_id', 'condition'];
   if (!partial) {
     for (const field of required) {
       if (payload[field] === undefined || payload[field] === null || payload[field] === '') {
@@ -186,10 +190,16 @@ function validatePayload(payload, { partial }) {
       }
     }
   }
+  if (payload.status && !['draft', 'active', 'sold', 'archived'].includes(payload.status)) throw new AppError(400, 'validation_error', 'Invalid listing status.');
+  if (payload.category_id && !(typeof payload.category_id === 'string')) throw new AppError(400, 'validation_error', 'Invalid category.');
+  if (payload.currency && !['USD','EUR','GBP','MUR','ZAR','AED','INR','AUD','CAD','CHF','SGD','JPY'].includes(payload.currency)) throw new AppError(400, 'validation_error', 'Unsupported currency.');
+  for (const field of ['origin_country', 'equipment_location']) {
+    if (payload[field] && !/^[A-Z]{2}$/.test(payload[field])) throw new AppError(400, 'validation_error', `${field} must be an uppercase country code.`);
+  }
   if (payload.condition && !CONDITIONS.includes(payload.condition)) {
     throw new AppError(400, 'validation_error', `condition must be one of: ${CONDITIONS.join(', ')}`);
   }
-  if (payload.price_amount !== undefined && Number(payload.price_amount) <= 0) {
+  if (payload.price_amount != null && payload.price_amount !== '' && (!Number.isFinite(Number(payload.price_amount)) || Number(payload.price_amount) <= 0)) {
     throw new AppError(400, 'validation_error', 'price_amount must be greater than 0.');
   }
 }
