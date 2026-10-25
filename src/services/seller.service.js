@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const { Seller, User, Listing, ListingImage, Category, OrderItem, Order } = require('../models');
 const AppError = require('../utils/AppError');
 const { parsePagination, paginatedResponse } = require('../utils/pagination');
@@ -50,8 +51,11 @@ async function getMyListings(user, query) {
   if (!seller) throw new AppError(404, 'not_found', 'No seller profile found.');
 
   const { page, limit, offset } = parsePagination(query);
+  const where = { sellerId: seller.id };
+  if (['active','draft','sold','archived'].includes(query.status)) where.status = query.status;
+  if (query.q) where[Op.or] = ['title','brand','model'].map(field => ({ [field]: { [Op.like]: `%${query.q}%` } }));
   const { rows, count } = await Listing.findAndCountAll({
-    where: { sellerId: seller.id },
+    where,
     include: [{ model: Seller, as: 'seller' }, { model: Category, as: 'category' }, { model: ListingImage, as: 'images' }],
     limit, offset, order: [['createdAt', 'DESC']],
   });

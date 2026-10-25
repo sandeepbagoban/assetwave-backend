@@ -8,7 +8,7 @@ const models = {
  Listing: { findAndCountAll: async options => { query = options; return { rows: [], count: 0 }; }, findByPk: async () => currentListing, findOne: async () => null, create: async payload => { created = payload; return { id: 'listing' }; } },
  Seller: { findOne: async () => ({ id: 'seller', kybStatus: 'approved' }) },
  Category: { findByPk: async () => ({ id: 'category' }), findOne: async () => ({ id: 'category' }) },
- ListingImage: {},
+ ListingImage: {}, User: {}, OrderItem: {}, Order: {},
 };
 require.cache[require.resolve('../src/models')] = { exports: models };
 const listing = require('../src/services/listing.service');
@@ -58,4 +58,10 @@ test('registration rejects missing or stale legal consent',async()=>{
  const body={email:'test@example.com',password:'long-enough',full_name:'Test'};
  for(const consent of [{},{accepted_terms:true,legal_version:'old'}]) {let error;await auth.register({body:{...body,...consent}},{},e=>{error=e;});assert.equal(error.code,'legal_acceptance_required');}
  let status;await auth.register({body:{...body,accepted_terms:true,legal_version:'2026-10-25'}},{status:n=>{status=n;return{json:()=>{}};}},e=>{throw e;});assert.equal(status,201);
+});
+const sellerService = require('../src/services/seller.service');
+test('seller inventory search and pagination remain scoped to the signed-in seller',async()=>{
+ await sellerService.getMyListings({id:'signed-in-user'},{q:'router',status:'draft',page:2,limit:20});
+ assert.equal(query.where.sellerId,'seller');assert.equal(query.where.status,'draft');assert.equal(query.offset,20);assert.equal(query.limit,20);
+ assert.equal(query.where[Op.or][0].title[Op.like],'%router%');
 });
